@@ -1,41 +1,37 @@
 package service;
 
+import dto.GoalRequest;
+import dto.GoalResponse;
+import entity.Goal;
 import entity.User;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.stereotype.Service;
+import repository.GoalRepository;
+import repository.UserRepository;
+import security.JwtService;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-
-import org.springframework.stereotype.Service;
-
-import auth.JwtService;
-import dto.GoalRequest;
-import dto.GoalResponse;
-import entity.Goal;
-
-import jakarta.servlet.http.HttpServletRequest;
-import repository.GoalRepository;
-import repository.UserRepository;
-
 @Service
 public class GoalService {
-    
+
     private final GoalRepository goalRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
 
-    public GoalService(GoalRepository goalRepository, UserRepository userRepository, JwtService jwtService){
+    public GoalService(GoalRepository goalRepository, UserRepository userRepository, JwtService jwtService) {
         this.goalRepository = goalRepository;
         this.userRepository = userRepository;
         this.jwtService = jwtService;
     }
 
-    public GoalResponse createGoal(GoalRequest request, HttpServletRequest httpRequest){
+    public GoalResponse createGoal(GoalRequest request, HttpServletRequest httpRequest) {
         String token = extractToken(httpRequest);
         String userEmail = jwtService.extractUsername(token);
-        User user = userRepository.findByEmail(userEmail).orElseThrow(() -> new RuntimeException(
-            "User not found"
-        ));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
 
         Goal goal = new Goal();
         goal.setTitle(request.getTitle());
@@ -47,25 +43,21 @@ public class GoalService {
         goal.setUser(user);
 
         goal = goalRepository.save(goal);
-
         return mapToResponse(goal);
-
-
     }
 
-    public List<GoalResponse> getUserGoals(HttpServletRequest httpRequest){
-          String token = extractToken(httpRequest);
+    public List<GoalResponse> getUserGoals(HttpServletRequest httpRequest) {
+        String token = extractToken(httpRequest);
         String userEmail = jwtService.extractUsername(token);
         User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
 
-        
         return goalRepository.findByUser(user).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    private GoalResponse mapToResponse(Goal goal){
+    private GoalResponse mapToResponse(Goal goal) {
         GoalResponse response = new GoalResponse();
         response.setId(goal.getId());
         response.setTitle(goal.getTitle());
@@ -77,11 +69,11 @@ public class GoalService {
         return response;
     }
 
-    private String extractToken(HttpServletRequest request){
+    private String extractToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
-        if(header != null && header.startsWith("Bearer")){
+        if (header != null && header.startsWith("Bearer ")) {
             return header.substring(7);
         }
-        throw new RuntimeException("Token not found");
+        throw new BadCredentialsException("Token de autorización no encontrado o inválido");
     }
 }

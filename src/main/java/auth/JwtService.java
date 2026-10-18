@@ -1,76 +1,56 @@
 package auth;
 
-import java.security.Key;
-import java.sql.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
-
-import org.springframework.beans.factory.annotation.Value;
+import entity.User;
+import io.jsonwebtoken.Claims;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import entity.User;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
+import java.util.Date;
+import java.util.Map;
+import java.util.function.Function;
 
-@Service
+/**
+ * Backward-compatible delegating wrapper around security.JwtService.
+ * Unifies all JWT operations across the application into a single secure implementation.
+ */
+@Service("authJwtService")
 public class JwtService {
-    
-    @Value("${jwt.secret}")
-    private String secretKey;
-    
-    @Value("${jwt.expiration}")
-    private Long jwtExpiration;
 
-    public String extractUsername(String token){
-      return extractClaim(token, Claims::getSubject);
+    private final security.JwtService delegate;
+
+    public JwtService(security.JwtService delegate) {
+        this.delegate = delegate;
     }
 
-    public Date exctractExpiration(String token){
-        return (Date) extractClaim(token, Claims::getExpiration);
+    public String extractUsername(String token) {
+        return delegate.extractUsername(token);
     }
 
-    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver){
-        final Claims claims = extractAllClaims(token);
-        return claimsResolver.apply(claims);
+    public Date exctractExpiration(String token) {
+        return delegate.extractExpiration(token);
     }
 
-    public String generateToken(User user){
-        return generateToken(new HashMap<>(), user);
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        return delegate.extractClaim(token, claimsResolver);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails){
-        return Jwts.builder()
-        .setClaims(extraClaims)
-        .setSubject(userDetails.getUsername())
-        .setIssuedAt(new Date(System.currentTimeMillis()))
-        .setExpiration(new Date(System.currentTimeMillis()+ jwtExpiration))
-        .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-        .compact();
+    public String generateToken(User user) {
+        return delegate.generateToken(user);
     }
 
-    public boolean isTokenValid(String token, UserDetails userDetails){
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return delegate.generateToken(extraClaims, userDetails);
     }
 
-    private boolean isTokenExpired(String token){
-        return exctractExpiration(token).before(new java.util.Date());
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        return delegate.isTokenValid(token, userDetails);
     }
 
-    private Claims extractAllClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+    public void blacklistToken(String token) {
+        delegate.blacklistToken(token);
     }
-    
-    
-    private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(secretKey.getBytes());
+
+    public boolean isTokenBlacklisted(String token) {
+        return delegate.isTokenBlacklisted(token);
     }
 }

@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
@@ -24,12 +25,14 @@ public class Routine {
 
     private LocalDate date;
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne
+    @ManyToMany
     @JoinTable(name = "routine_exercise", joinColumns = @JoinColumn(name = "routine_id" ),
             inverseJoinColumns = @JoinColumn(name = "exercise_id"))
-            private List<Excercise> exercises;
+    private List<Excercise> exercises;
 
     public Routine(){}
 
